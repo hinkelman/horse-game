@@ -10,15 +10,15 @@ roll <- function(n, replace = TRUE, rdf = rolls_df){
   sample(rdf$Roll, size = n, replace = replace, prob = rdf$Prob)
 }
 
-get_kitty <- function(base_value, scratches, rolls){
-  out = 4 * base_value * (4 + 3 + 2 + 1)
-  if (length(rolls) > 0){
+get_kitty <- function(base_value, scratches, rolls = NULL){
+  init = 4 * base_value * (4 + 3 + 2 + 1)
+  vals = NULL
+  if (!is.null(rolls) & length(rolls) > 0){
     vals = sapply(rolls, function(x){
       ind = which(scratches == x)
       val = if (length(ind) > 0) ind * base_value else 0})
-    out = out + sum(vals)
   }
-  out
+  cumsum(c(init, vals))
 }
 
 get_prob <- function(scratches, rolls, rdf = rolls_df){
@@ -49,7 +49,7 @@ sim_game <- function(base_value){
     game = get_prob(scratches, rolls)
   }
   data.frame(Rolls = length(rolls),
-             Kitty = get_kitty(base_value, scratches, rolls), 
+             Kitty = max(get_kitty(base_value, scratches, rolls)), 
              Winner = game$Horse[game$StepsRemain == 0])
 } 
 
