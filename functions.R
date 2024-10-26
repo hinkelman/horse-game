@@ -6,16 +6,8 @@ rolls_df = expand.grid(Dice1 = 1:6, Dice2 = 1:6) |>
                 Steps = c(3, 6, 8, 11, 14, 16, 14, 11, 8, 6, 3),
                 StepsProb = Steps/sum(Steps))
 
-roll <- function(n, rdf = rolls_df){
-  sample(rdf$Roll, size = n, replace = TRUE, prob = rdf$Prob)
-}
-
-get_scratches <- function(){
-  scratches = c()
-  while(length(scratches) < 4){
-    scratches = unique(c(scratches, roll(1)))
-  }
-  scratches
+roll <- function(n, replace = TRUE, rdf = rolls_df){
+  sample(rdf$Roll, size = n, replace = replace, prob = rdf$Prob)
 }
 
 get_kitty <- function(base_value, scratches, rolls){
@@ -49,7 +41,7 @@ get_prob <- function(scratches, rolls, rdf = rolls_df){
 }
 
 sim_game <- function(base_value){
-  scratches = get_scratches()
+  scratches = roll(4, replace = FALSE)
   rolls = roll(1)
   game = get_prob(scratches, rolls)
   while(min(game$StepsRemain) > 0){
