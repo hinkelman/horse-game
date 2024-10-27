@@ -94,23 +94,26 @@ server <- function(session, input, output) {
   })
   
   rolls <- reactive({
-    as.factor(rv$rolls)
+    factor(rv$rolls, levels = 2:12)
   })
   
   steps <- reactive({
-    1:length(rv$rolls)
+    0:length(rv$rolls)
   })
   
   probs <- reactive({
-    req(length(rolls()) > 0)
-    lapply(steps(), function(n) get_prob(scratches(), rolls()[1:n])) |> 
+    lapply(steps(), function(n){
+      rls = if (n == 0) NULL else rolls()[1:n]
+      get_win_prob(scratches(), rls)
+    }) |> 
       bind_rows(.id = "Roll") |> 
-      mutate(Roll = as.numeric(Roll))
+      mutate(Roll = as.numeric(Roll) - 1)
   })
   
   output$probs_plot <- renderPlotly({
     validate(need(length(unique(scratches())) == 4, "At least one scratch is duplicated"))
     p = ggplot(probs(), aes(x = Roll, y = WinProb, col = Horse)) +
+      geom_point() + 
       geom_line() +
       scale_color_manual(values = horse_colors) +
       labs(y = "Win Probability") +
@@ -119,8 +122,7 @@ server <- function(session, input, output) {
   })
   
   kitty <- reactive({
-    req(length(rolls()) > 0)
-    sapply(steps(), function(n) get_kitty(base_value(), scratches(), rolls()[1:n]))
+    get_kitty(base_value(), scratches(), rolls())
   })
   
   output$kitty_plot <- renderPlotly({
