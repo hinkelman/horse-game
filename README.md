@@ -1,1 +1,1 @@
-R code and [Shiny app](https://hinkelman.shinyapps.io/horse-game/) for calculating win probability in the [Across the Board Kentucky Derby Horse Racing Game](https://www.scheels.com/p/79830436058/).  
+R code and [Shiny app](https://hinkelman.shinyapps.io/horse-game/) for calculating win probability in the [Across the Board Kentucky Derby Horse Racing Game](https://www.scheels.com/p/79830436058/). See this [blog post](https://www.travishinkelman.com/horse-game/) for more information.
