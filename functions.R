@@ -22,15 +22,6 @@ get_kitty <- function(base_value, scratches, rolls = NULL){
   cumsum(c(init, vals))
 }
 
-calc_win_prob <- function(roll_prob, steps_remain, scratches){
-  probs = roll_prob^steps_remain
-  # horse numbers range from 2:12 so need to sutract one to get index
-  probs[as.numeric(scratches) - 1] = 0
-  probs_scaled = probs/sum(probs)
-  if (min(steps_remain) < 1) probs_scaled = ifelse(probs_scaled == max(probs_scaled), 1, 0)
-  probs_scaled
-}
-
 get_win_prob <- function(scratches, rolls = NULL, rdf = rolls_df){
   if (!is.null(rolls) & length(rolls) > 0){
     counts = unclass(unname(table(rolls)))
@@ -41,6 +32,15 @@ get_win_prob <- function(scratches, rolls = NULL, rdf = rolls_df){
   data.frame(Horse = as.factor(2:12),
              StepsRemain = steps_remain,
              WinProb = calc_win_prob(rdf$Prob, steps_remain, scratches))
+}
+
+calc_win_prob <- function(roll_prob, steps_remain, scratches){
+  probs = roll_prob^steps_remain
+  # horse numbers range from 2:12 so need to sutract one to get index
+  probs[as.numeric(scratches) - 1] = 0
+  probs_scaled = probs/sum(probs)
+  if (min(steps_remain) < 1) probs_scaled = ifelse(probs_scaled == max(probs_scaled), 1, 0)
+  probs_scaled
 }
 
 sim_game <- function(base_value){
