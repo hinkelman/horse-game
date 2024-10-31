@@ -106,17 +106,17 @@ server <- function(session, input, output) {
       rls = if (n == 0) NULL else rolls()[1:n]
       get_win_prob(scratches(), rls)
     }) |> 
-      bind_rows(.id = "Roll") |> 
-      mutate(Roll = as.numeric(Roll) - 1)
+      bind_rows(.id = "roll") |> 
+      mutate(roll = as.numeric(roll) - 1)
   })
   
   output$probs_plot <- renderPlotly({
     validate(need(length(unique(scratches())) == 4, "At least one scratch is duplicated"))
-    p = ggplot(probs(), aes(x = Roll, y = WinProb, col = Horse)) +
+    p = ggplot(probs(), aes(x = roll, y = win_prob, col = horse)) +
       geom_point() + 
       geom_line() +
       scale_color_manual(values = horse_colors) +
-      labs(y = "Win Probability") +
+      labs(y = "Win Probability", color = "Horse") +
       theme_classic()
     ggplotly(p)
   })
@@ -127,11 +127,12 @@ server <- function(session, input, output) {
   
   output$kitty_plot <- renderPlotly({
     validate(need(length(unique(scratches())) == 4, "At least one scratch is duplicated"))
-    df = data.frame(Roll = steps(),
-                    Kitty = kitty())
-    p = ggplot(df, aes(x = Roll, y = Kitty)) +
+    df = data.frame(roll = steps(),
+                    kitty = kitty())
+    p = ggplot(df, aes(x = roll, y = kitty)) +
       geom_point() +
       geom_line() +
+      labs(x = "Roll", y = "Kitty") +
       theme_classic()
     ggplotly(p)
   })

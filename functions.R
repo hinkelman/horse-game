@@ -1,14 +1,14 @@
-rolls_df = expand.grid(Dice1 = 1:6, Dice2 = 1:6) |> 
-  dplyr::mutate(Roll = Dice1 + Dice2)  |> 
-  dplyr::count(Roll) |> 
-  # by making Roll a factor, table (see below) reports zero for values that haven't been rolled yet
-  dplyr::mutate(Roll = as.factor(Roll),
-                Prob = n/sum(n),
-                Steps = c(3, 6, 8, 11, 14, 16, 14, 11, 8, 6, 3),
-                StepsProb = Steps/sum(Steps))
+rolls_df = expand.grid(dice1 = 1:6, dice2 = 1:6) |> 
+  dplyr::mutate(roll = dice1 + dice2)  |> 
+  dplyr::count(roll) |> 
+  # by making roll a factor, table (see below) reports zero for values that haven't been rolled yet
+  dplyr::mutate(roll = as.factor(roll),
+                steps = c(3, 6, 8, 11, 14, 16, 14, 11, 8, 6, 3),
+                prob = n/sum(n),
+                prob_steps = steps/sum(steps))
 
 roll <- function(n, replace = TRUE, rdf = rolls_df){
-  sample(rdf$Roll, size = n, replace = replace, prob = rdf$Prob)
+  sample(rdf$roll, size = n, replace = replace, prob = rdf$prob)
 }
 
 get_kitty <- function(base_value, scratches, rolls = NULL){
@@ -25,13 +25,13 @@ get_kitty <- function(base_value, scratches, rolls = NULL){
 get_win_prob <- function(scratches, rolls = NULL, rdf = rolls_df){
   if (!is.null(rolls) & length(rolls) > 0){
     counts = unclass(unname(table(rolls)))
-    steps_remain = rdf$Steps - counts
+    steps_remain = rdf$steps - counts
   } else {
-    steps_remain = rdf$Steps
+    steps_remain = rdf$steps
   }
-  data.frame(Horse = as.factor(2:12),
-             StepsRemain = steps_remain,
-             WinProb = calc_win_prob(rdf$Prob, steps_remain, scratches))
+  data.frame(horse = as.factor(2:12),
+             steps_remain = steps_remain,
+             win_prob = calc_win_prob(rdf$prob, steps_remain, scratches))
 }
 
 calc_win_prob <- function(roll_prob, steps_remain, scratches){
@@ -47,12 +47,12 @@ sim_game <- function(base_value){
   scratches = roll(4, replace = FALSE)
   rolls = roll(1)
   wp = get_win_prob(scratches, rolls)
-  while(min(wp$StepsRemain) > 0){
+  while(min(wp$steps_remain) > 0){
     rolls = c(rolls, roll(1))
     wp = get_win_prob(scratches, rolls)
   }
-  data.frame(Rolls = length(rolls),
-             Kitty = max(get_kitty(base_value, scratches, rolls)), 
-             Winner = wp$Horse[wp$StepsRemain == 0])
+  data.frame(rolls = length(rolls),
+             kitty = max(get_kitty(base_value, scratches, rolls)), 
+             winner = wp$horse[wp$steps_remain == 0])
 } 
 
