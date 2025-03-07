@@ -86,7 +86,7 @@ server <- function(session, input, output) {
   observeEvent(input[["12"]],{ rv$rolls = c(rv$rolls, 12) })
   
   base_value <- reactive({
-    as.numeric(sub("\\$", "", "$0.25"))
+    as.numeric(sub("\\$", "", input$base_value))
   })
   
   scratches <- reactive({
