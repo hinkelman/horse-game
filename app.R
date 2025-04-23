@@ -101,13 +101,16 @@ server <- function(session, input, output) {
   
   output$probs_plot <- renderPlotly({
     validate(need(length(unique(scratches())) == 4, "Scratch values must all be unique"))
-    validate(need(all(scratches() > 1 & scratches() < 13), "Scratch values must be integers from 2 to 12"))
-    p = ggplot(probs(), aes(x = roll, y = win_prob, col = horse)) +
+    validate(need(all(scratches() %in% 2:12), "Scratch values must be integers from 2 to 12"))
+    
+    p = ggplot(filter(probs(), !(horse %in% scratches())), 
+               aes(x = roll, y = win_prob, col = horse)) +
       geom_point() + 
       geom_line() +
       scale_color_manual(values = horse_colors) +
-      labs(y = "Win Probability", color = "Horse") +
+      labs(x = "Roll", y = "Win Probability", color = "Horse") +
       theme_classic()
+    
     ggplotly(p)
   })
   
@@ -117,7 +120,7 @@ server <- function(session, input, output) {
   
   output$kitty_plot <- renderPlotly({
     validate(need(length(unique(scratches())) == 4, ""))
-    validate(need(all(scratches() > 1 & scratches() < 13), ""))
+    validate(need(all(scratches() %in% 2:12), ""))
     df = data.frame(roll = steps(),
                     kitty = kitty())
     p = ggplot(df, aes(x = roll, y = kitty)) +
