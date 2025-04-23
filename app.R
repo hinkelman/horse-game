@@ -100,7 +100,8 @@ server <- function(session, input, output) {
   })
   
   output$probs_plot <- renderPlotly({
-    validate(need(length(unique(scratches())) == 4, "At least one scratch is duplicated"))
+    validate(need(length(unique(scratches())) == 4, "Scratch values must all be unique"))
+    validate(need(all(scratches() > 1 & scratches() < 13), "Scratch values must be integers from 2 to 12"))
     p = ggplot(probs(), aes(x = roll, y = win_prob, col = horse)) +
       geom_point() + 
       geom_line() +
