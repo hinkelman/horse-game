@@ -116,7 +116,8 @@ server <- function(session, input, output) {
   })
   
   output$kitty_plot <- renderPlotly({
-    validate(need(length(unique(scratches())) == 4, "At least one scratch is duplicated"))
+    validate(need(length(unique(scratches())) == 4, ""))
+    validate(need(all(scratches() > 1 & scratches() < 13), ""))
     df = data.frame(roll = steps(),
                     kitty = kitty())
     p = ggplot(df, aes(x = roll, y = kitty)) +
