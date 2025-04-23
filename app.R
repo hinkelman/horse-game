@@ -1,6 +1,5 @@
 library(shiny)
 library(bslib)
-library(shinyWidgets)
 library(dplyr)
 library(ggplot2)
 library(plotly)
@@ -22,51 +21,45 @@ horse_colors = c("2" = "#a6cee3",
 ui <- page_fluid(
   title = "Horse Game",
   br(),
-  layout_columns(
-    card(
-      card_header("Base Value"),
-      radioGroupButtons(inputId = "base_value", label = "", choices = c("$0.05", "$0.10", "$0.25", "$1.00"), 
-                        selected = "$0.25", justified = TRUE)
-    ),
-    card(
-      card_header("Scratches"),
-      layout_columns(
-        pickerInput("x1", label = "x1", choices = 2:12, selected = 6,
-                    options = list(container = "body", liveSearch = TRUE)),
-        pickerInput("x2", label = "x2", choices = 2:12, selected = 7,
-                    options = list(container = "body", liveSearch = TRUE)),
-        pickerInput("x3", label = "x3", choices = 2:12, selected = 8,
-                    options = list(container = "body", liveSearch = TRUE)),
-        pickerInput("x4", label = "x4", choices = 2:12, selected = 9,
-                    options = list(container = "body", liveSearch = TRUE))
-      )
-    ),
-    col_widths = c(4, 8)
+  card(
+    card_header("Base Value"),
+    sliderInput(inputId = "base_value", label = "", min = 0.05, max = 1, 
+                step = 0.05, value = 0.25, pre = "$", width = "100%")
+  ),
+  card(
+    card_header("Scratches"),
+    layout_column_wrap(
+      width = "40px",
+      textInput("x1", label = "x1", value = "6"),
+      textInput("x2", label = "x2", value = "7"),
+      textInput("x3", label = "x3", value = "8"),
+      textInput("x4", label = "x4", value = "9")
+    )
   ),
   card(
     card_header("Click Button for Each Roll"),
-    layout_columns(actionBttn("2", "2"), 
-                   actionBttn("3", "3"), 
-                   actionBttn("4", "4"),
-                   actionBttn("5", "5"),
-                   actionBttn("6", "6"), 
-                   actionBttn("7", "7"), 
-                   actionBttn("8", "8"),
-                   actionBttn("9", "9",),
-                   actionBttn("10", "10"), 
-                   actionBttn("11", "11"),
-                   actionBttn("12", "12"))
+    layout_column_wrap(
+      width = "80px",
+      actionButton("2", "2"), 
+      actionButton("3", "3"), 
+      actionButton("4", "4"),
+      actionButton("5", "5"),
+      actionButton("6", "6"), 
+      actionButton("7", "7"), 
+      actionButton("8", "8"),
+      actionButton("9", "9"),
+      actionButton("10", "10"), 
+      actionButton("11", "11"),
+      actionButton("12", "12")
+    )
   ),
-  layout_columns(
-    card(
-      card_header("Win Probability"),
-      plotlyOutput("probs_plot")
-    ),
-    card(
-      card_header("Kitty"), 
-      plotlyOutput("kitty_plot")
-    ),
-    col_widths = c(7, 5)
+  card(
+    card_header("Win Probability"),
+    plotlyOutput("probs_plot")
+  ),
+  card(
+    card_header("Kitty"), 
+    plotlyOutput("kitty_plot")
   )
 )
 
@@ -84,10 +77,6 @@ server <- function(session, input, output) {
   observeEvent(input[["10"]],{ rv$rolls = c(rv$rolls, 10) })
   observeEvent(input[["11"]],{ rv$rolls = c(rv$rolls, 11) })
   observeEvent(input[["12"]],{ rv$rolls = c(rv$rolls, 12) })
-  
-  base_value <- reactive({
-    as.numeric(sub("\\$", "", input$base_value))
-  })
   
   scratches <- reactive({
     as.numeric(c(input$x1, input$x2, input$x3, input$x4))
@@ -122,7 +111,7 @@ server <- function(session, input, output) {
   })
   
   kitty <- reactive({
-    get_kitty(base_value(), scratches(), rolls())
+    get_kitty(input$base_value, scratches(), rolls())
   })
   
   output$kitty_plot <- renderPlotly({
