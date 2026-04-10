@@ -1,66 +1,96 @@
+horse_colors = c(
+  "2" = "#a6cee3",
+  "12" = "#1f78b4",
+  "3" = "#b2df8a",
+  "11" = "#33a02c",
+  "4" = "#fb9a99",
+  "10" = "#e31a1c",
+  "5" = "#fdbf6f",
+  "9" = "#ff7f00",
+  "6" = "#cab2d6",
+  "8" = "#6a3d9a",
+  "7" = "#b15928"
+)
+
 rolls_df = expand.grid(dice1 = 1:6, dice2 = 1:6) |>
   dplyr::mutate(roll = dice1 + dice2) |>
   dplyr::count(roll) |>
-  # by making roll a factor, table (see below) reports zero for values that haven't been rolled yet
   dplyr::mutate(
-    roll = as.factor(roll),
     steps = c(3, 6, 8, 11, 14, 16, 14, 11, 8, 6, 3),
     prob = n / sum(n),
     prob_steps = steps / sum(steps)
   )
 
-roll <- function(n, replace = TRUE, rdf = rolls_df) {
-  sample(rdf$roll, size = n, replace = replace, prob = rdf$prob)
+roll <- function(n, replace = TRUE, prob = rolls_df$prob) {
+  # sample.int is faster than sample
+  sample.int(11, size = n, replace = replace, prob = prob) + 1L
 }
 
 get_kitty <- function(base_value, scratches, rolls = NULL) {
   init = 4 * base_value * (4 + 3 + 2 + 1) # multiply by 4 for 4 suits in deck
   vals = NULL
-  if (!is.null(rolls) & length(rolls) > 0) {
+  if (!is.null(rolls) && length(rolls) > 0) {
     vals = sapply(rolls, function(x) {
-      ind = which(scratches == x)
-      val = if (length(ind) > 0) ind * base_value else 0
+      mult = which(scratches == x) # index in scratches indicates multiplier
+      if (length(mult) > 0) mult * base_value else 0
     })
   }
-  cumsum(c(init, vals))
+  sum(c(init, vals))
 }
 
-get_win_prob <- function(scratches, rolls = NULL, rdf = rolls_df) {
-  if (!is.null(rolls) & length(rolls) > 0) {
+get_steps_remain <- function(scratches, rolls, rdf = rolls_df) {
+  rolls = factor(rolls, levels = 2:12)
+  counts = 0
+  if (length(rolls) > 0) {
     counts = unclass(unname(table(rolls)))
-    steps_remain = rdf$steps - counts
+  }
+  steps_remain = setNames(rdf$steps - counts, as.character(2:12))
+  steps_remain[as.character(scratches)] = NA
+  steps_remain
+}
+
+sim_one_game <- function(scratches, rolls, winner_only = TRUE) {
+  steps_remain = get_steps_remain(scratches, rolls)
+  active = !is.na(steps_remain)
+  sr = steps_remain
+  if (any(sr[active] < 0)) {
+    stop("Winner was already determined")
+  }
+  # conservative choice; highly unlikely to need 200 rolls to finish a game
+  sim_rolls_pool = roll(200)
+  i = 1
+  while (all(sr[active] > 0)) {
+    r = sim_rolls_pool[i] # integer 2–12
+    i = i + 1
+    idx = r - 1L # integer 1–11
+    if (active[idx]) {
+      sr[idx] = sr[idx] - 1L
+    }
+  }
+  winner = names(which(sr == 0))
+  if (winner_only) {
+    winner
   } else {
-    steps_remain = rdf$steps
+    sim_rolls = sim_rolls_pool[seq_len(i - 1)] # trim to actual length
+    list("winner" = winner, "rolls" = c(rolls, sim_rolls))
   }
-  data.frame(
-    horse = as.factor(2:12),
-    steps_remain = steps_remain,
-    win_prob = calc_win_prob(rdf$prob, steps_remain, scratches)
-  )
 }
 
-calc_win_prob <- function(roll_prob, steps_remain, scratches) {
-  probs = roll_prob^steps_remain
-  # horse numbers range from 2:12 so need to sutract one to get index
-  probs[as.numeric(scratches) - 1] = 0
-  probs_scaled = probs / sum(probs)
-  if (min(steps_remain) < 1) {
-    probs_scaled = ifelse(probs_scaled == max(probs_scaled), 1, 0)
-  }
-  probs_scaled
+# simulates win probability from any point in game (based on rolls)
+sim_win_prob <- function(scratches, rolls = NULL, n_sim = 1000) {
+  winners = replicate(n_sim, {
+    sim_one_game(scratches, rolls)
+  }) |>
+    factor(levels = as.character(2:12))
+  table(winners) / n_sim
 }
 
-sim_game <- function(base_value) {
-  scratches = roll(4, replace = FALSE)
-  rolls = roll(1)
-  wp = get_win_prob(scratches, rolls)
-  while (min(wp$steps_remain) > 0) {
-    rolls = c(rolls, roll(1))
-    wp = get_win_prob(scratches, rolls)
-  }
-  data.frame(
-    rolls = length(rolls),
-    kitty = max(get_kitty(base_value, scratches, rolls)),
-    winner = wp$horse[wp$steps_remain == 0]
+# returns winner and kitty
+# always starting at beginning of game
+sim_new_game <- function(scratches, base_value = 0.25) {
+  sim = sim_one_game(scratches, rolls = NULL, winner_only = FALSE)
+  list(
+    "winner" = sim$winner,
+    "kitty" = get_kitty(base_value, scratches, sim$rolls)
   )
 }

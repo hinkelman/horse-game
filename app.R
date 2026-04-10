@@ -3,25 +3,14 @@ library(bslib)
 library(dplyr)
 library(ggplot2)
 library(plotly)
+library(shinyjs)
 
 source("functions.R")
 
-horse_colors = c(
-  "2" = "#a6cee3",
-  "12" = "#1f78b4",
-  "3" = "#b2df8a",
-  "11" = "#33a02c",
-  "4" = "#fb9a99",
-  "10" = "#e31a1c",
-  "5" = "#fdbf6f",
-  "9" = "#ff7f00",
-  "6" = "#cab2d6",
-  "8" = "#6a3d9a",
-  "7" = "#b15928"
-)
-
 ui <- page_fluid(
   title = "Horse Game",
+
+  useShinyjs(),
 
   tags$head(tags$style(HTML(
     "
@@ -174,6 +163,7 @@ ui <- page_fluid(
       )
     )
   ),
+  uiOutput("validation_msg"),
   div(
     class = "rolls-card",
     card(
@@ -197,7 +187,19 @@ ui <- page_fluid(
 
   # Roll history badge strip
   card(
-    card_header("Roll History"),
+    # card_header("Roll History"),
+    card_header(
+      "Roll History",
+      div(
+        style = "display: flex; justify-content: space-between; align-items: right;",
+        actionButton(
+          "undo",
+          "↶ Undo",
+          class = "btn-sm btn-outline-secondary",
+          style = "padding: 1px 8px; font-size: 0.75rem;"
+        )
+      )
+    ),
     div(class = "roll-history-wrap", uiOutput("roll_history"))
   ),
 
@@ -253,27 +255,74 @@ server <- function(session, input, output) {
     rv$rolls = c(rv$rolls, 12)
   })
 
-  scratches <- reactive({
-    as.numeric(c(input$x1, input$x2, input$x3, input$x4))
-  })
-
   rolls <- reactive({
     factor(rv$rolls, levels = 2:12)
   })
 
+  scratches <- reactive({
+    as.numeric(c(input$x1, input$x2, input$x3, input$x4))
+  })
+
+  check_scratches <- function() {
+    s <- scratches()
+    if (length(unique(s)) != 4) {
+      return("Scratches must be unique")
+    }
+    if (!all(s %in% 2:12)) {
+      return("Scratches must be integers from 2 to 12")
+    }
+    NULL
+  }
+
+  output$validation_msg <- renderUI({
+    err <- check_scratches()
+    if (is.null(err)) {
+      return(NULL)
+    }
+    div(class = "alert alert-warning", style = "margin-bottom: 0.5rem;", err)
+  })
+
+  game_over <- reactive({
+    req(
+      length(unique(scratches())) == 4,
+      all(scratches() %in% 2:12),
+      req(rolls())
+    )
+    sr <- get_steps_remain(scratches(), rolls())
+    sr[as.character(scratches())] <- NA
+    any(sr < 1, na.rm = TRUE)
+  })
+
+  observe({
+    if (game_over()) {
+      lapply(2:12, function(h) shinyjs::disable(as.character(h)))
+    } else {
+      lapply(2:12, function(h) shinyjs::enable(as.character(h)))
+    }
+  })
+
+  observeEvent(input$undo, {
+    if (length(rv$rolls) > 0) {
+      rv$rolls <- rv$rolls[-length(rv$rolls)]
+    }
+  })
+
+  observe({
+    toggleState("undo", condition = length(rv$rolls) > 0)
+  })
+
   # ---- Roll history badge strip ----
-  # Shows last 20 rolls oldest→newest (left→right); most recent is fully opaque
+  # Shows last 20 rolls newest->oldest (left→right); most recent is fully opaque
   output$roll_history <- renderUI({
     rls <- rv$rolls
     if (length(rls) == 0) {
       return(tags$span(class = "roll-empty", "No rolls yet"))
     }
-    recent <- tail(rls, 20)
-    n <- length(recent)
+    recent <- rev(tail(rls, 20))
     lapply(seq_along(recent), function(i) {
       horse <- as.character(recent[i])
       color <- horse_colors[horse]
-      faded <- if (i < n) "faded" else ""
+      faded <- if (i > 1) "faded" else ""
       tags$span(
         class = paste("roll-badge", faded),
         style = paste0("background-color:", color, ";"),
@@ -285,55 +334,45 @@ server <- function(session, input, output) {
   # ---- Win probability rankings ----
   current_probs <- reactive({
     req(length(unique(scratches())) == 4, all(scratches() %in% 2:12))
-    get_win_prob(scratches(), rolls()) |>
-      filter(!(horse %in% scratches())) |>
-      arrange(desc(win_prob))
+    sim_win_prob(scratches(), rolls()) |>
+      sort(decreasing = TRUE)
   })
 
-  place_row <- function(n) {
-    reactive({
-      df <- current_probs()
-      if (nrow(df) >= n) df[n, ] else NULL
-    })
+  fmt_horse <- function(horse) {
+    if (is.null(horse)) "\u2014" else paste("Horse", horse)
+  }
+  fmt_prob <- function(prob) {
+    if (is.null(prob)) "\u2014" else paste0(round(prob * 100, 1), "%")
   }
 
-  place1 <- place_row(1)
-  place2 <- place_row(2)
-  place3 <- place_row(3)
-
-  fmt_horse <- function(row) {
-    if (is.null(row)) "\u2014" else paste("Horse", row$horse)
-  }
-  fmt_prob <- function(row) {
-    if (is.null(row)) "\u2014" else paste0(round(row$win_prob * 100, 1), "%")
-  }
-
-  make_place_box <- function(title, place_reactive) {
+  make_place_box <- function(title, n) {
     renderUI({
-      row <- place_reactive()
-      color <- if (is.null(row)) {
-        "#aaaaaa"
-      } else {
-        horse_colors[as.character(row$horse)]
-      }
+      place <- current_probs()[n] # reactive read happens here, inside renderUI
+      horse <- names(place)
+      prob <- unname(place)
+      color_bg <- horse_colors[horse]
+      color_fg <- if (as.numeric(horse) %in% 2:6) "#000" else "#fff"
       value_box(
         title = title,
-        value = fmt_horse(row),
-        showcase = tags$span(style = "font-size:1.1rem;", fmt_prob(row)),
-        theme = value_box_theme(bg = color, fg = "#000")
+        value = fmt_horse(horse),
+        showcase = tags$span(style = "font-size:1.1rem;", fmt_prob(prob)),
+        theme = value_box_theme(
+          bg = color_bg,
+          fg = color_fg
+        )
       )
     })
   }
 
-  output$place1_box <- make_place_box("1st Place", place1)
-  output$place2_box <- make_place_box("2nd Place", place2)
-  output$place3_box <- make_place_box("3rd Place", place3)
+  output$place1_box <- make_place_box("1st Place", 1)
+  output$place2_box <- make_place_box("2nd Place", 2)
+  output$place3_box <- make_place_box("3rd Place", 3)
 
   # ---- Kitty ----
   output$kitty_value <- renderText({
     req(length(unique(scratches())) == 4, all(scratches() %in% 2:12))
-    kitty_vals <- get_kitty(input$base_value, scratches(), rolls())
-    paste0("$", formatC(tail(kitty_vals, 1), format = "f", digits = 2))
+    kitty_val <- get_kitty(input$base_value, scratches(), rolls())
+    paste0("$", formatC(kitty_val, format = "f", digits = 2))
   })
 }
 
